@@ -1,5 +1,6 @@
 #include <vector>
 #include <random>
+#include <fstream>
 
 #include "PBM.hpp"
 
@@ -39,6 +40,40 @@ struct Pattern {
             bits[i] = flat_img[i] ? STATE::UP : STATE::DOWN;
 
         return bits;
+    }
+
+
+    void to_pbm(const std::string& filename, size_t width = 0, size_t height = 0) {
+        if (width == 0 || height == 0) {
+            size_t size = this->bits.size();
+            width = static_cast<size_t>(std::sqrt(size));
+            while (size % width != 0 && width > 1) --width;
+            height = size / width;
+            
+            if (width * height != size) {
+                width = static_cast<size_t>(std::sqrt(size));
+                height = (size + width - 1) / width; 
+            }
+        }
+        
+        if (width * height != this->bits.size()) 
+            throw std::invalid_argument("Width * Height must equal pattern size");
+        
+        std::ofstream file(filename);
+        if (!file.is_open()) throw std::runtime_error("Cannot open file: " + filename);
+        
+        file << "P1\n";
+        file << width << " " << height << "\n";
+        
+        for (size_t i = 0; i < height; ++i) {
+            for (size_t j = 0; j < width; ++j) {
+                file << (this->bits[i * width + j] == STATE::UP ? "1" : "0");
+                if (j < width - 1) file << " ";
+            }
+            file << "\n";
+        }
+        
+        if (!file.good()) throw std::runtime_error("Error writing to file: " + filename);
     }
 
 
