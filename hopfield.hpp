@@ -83,7 +83,6 @@ public:
 private:
 
     Eigen::MatrixXd hebb_weights(const std::vector<Pattern>& patterns) {
-        size_t n_patterns = patterns.size(); 
         size_t n_neurons = patterns.front().size(); 
 
         Eigen::MatrixXd W(n_neurons, n_neurons);        
