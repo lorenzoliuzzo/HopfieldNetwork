@@ -10,16 +10,18 @@
 class HopfieldNetwork {
 public:
     
-    void train(const std::vector<Pattern>& patterns, std::string rule) {
+    void train(const std::vector<Pattern>& patterns, std::string learning_rule = "pinv") {
         if (patterns.size() > this->storage_capacity(patterns.front().size())) 
             throw std::runtime_error("Storage capacity exceeded! More neurons are needed in order to store this many patterns.");
         
-        if (rule == "hebb") 
+        if (learning_rule == "hebb") 
             this->weights = this->hebb_weights(patterns);
-        else if (rule == "pinv") 
+        else if (learning_rule == "pinv") 
             this->weights = this->pinv_weights(patterns);
         else    
-            throw std::runtime_error("No rule found.");
+            throw std::runtime_error(
+                "There is no '" + learning_rule + "' learning rule in the current implementation. Consider using 'hebb' or 'pinv' learning rules."
+            );
     }
 
 
@@ -27,8 +29,8 @@ public:
         Pattern current = input; 
         size_t n_neurons = input.size();
 
-        std::vector<size_t> indices(n_neurons);
-        std::iota(indices.begin(), indices.end(), 0);
+        std::vector<size_t> idxs(n_neurons);
+        std::iota(idxs.begin(), idxs.end(), 0);
 
         std::random_device rd;
         std::mt19937 rng(rd());
@@ -38,13 +40,13 @@ public:
             Pattern old = current;
             bool changed = false;
 
-            std::shuffle(indices.begin(), indices.end(), rng);
-            for (size_t i : indices) {
+            std::shuffle(idxs.begin(), idxs.end(), rng);
+            for (size_t i : idxs) {
                 double sum = 0.0;
                 for (size_t j = 0; j < n_neurons; ++j) 
                     sum += this->weights(i, j) * static_cast<int>(current.bits[j]);
                 
-                STATE new_bit = (sum >= 0) ? UP : DOWN;
+                auto new_bit = (sum >= 0) ? SpinHalf::UP : SpinHalf::DOWN;
                 if (new_bit != current.bits[i]) {
                     current.bits[i] = new_bit;
                     changed = true;
@@ -82,7 +84,7 @@ public:
 
 private:
 
-    Eigen::MatrixXd hebb_weights(const std::vector<Pattern>& patterns) {
+    Eigen::MatrixXd hebb_weights(const std::vector<Pattern>& patterns) const {
         size_t n_neurons = patterns.front().size(); 
 
         Eigen::MatrixXd W(n_neurons, n_neurons);        
@@ -91,7 +93,7 @@ private:
             for (size_t j = i + 1; j < n_neurons; ++j) {  
                 double w_ij = 0.0;
                 for (const Pattern& p : patterns) 
-                    w_ij += int(p.bits[i]) * int(p.bits[j]);
+                    w_ij += static_cast<int>(p.bits[i]) * static_cast<int>(p.bits[j]);
                 w_ij /= n_neurons;
                 W(i, j) = W(j, i) = w_ij;                
             }
@@ -99,15 +101,14 @@ private:
         return W;
     }
 
-    Eigen::MatrixXd pinv_weights(const std::vector<Pattern>& patterns) {
-        size_t n_neurons = patterns.front().size();
+    Eigen::MatrixXd pinv_weights(const std::vector<Pattern>& patterns) const {
         size_t n_patterns = patterns.size();
+        size_t n_neurons = patterns.front().size();
         
-        Eigen::MatrixXd X(n_neurons, n_patterns);
-        Eigen::MatrixXd X_T(n_patterns, n_neurons);
+        Eigen::MatrixXd X(n_neurons, n_patterns), X_T(n_patterns, n_neurons);
         for (size_t μ = 0; μ < n_patterns; ++μ) 
             for (size_t i = 0; i < n_neurons; ++i) 
-                X(i, μ) = X_T(μ, i) = patterns[μ].bits[i];
+                X(i, μ) = X_T(μ, i) = static_cast<int>(patterns[μ].bits[i]);
         
         return X * (X_T * X).inverse() * X_T;  
     }

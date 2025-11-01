@@ -3,7 +3,19 @@
 #include <vector>
 
 
-std::vector<std::vector<int>> read_pbm(const std::string& filename) {
+struct PBM {
+    size_t width, height; 
+    std::vector<int> bits; 
+
+    PBM(size_t width, size_t height) {
+        this->width = width;
+        this->height = height;
+        this->bits = std::vector<int>(width * height); 
+    }
+}; 
+
+
+PBM read_pbm(const std::string& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) throw std::runtime_error("Error: Could not open file '" + filename + "'.");
     
@@ -17,13 +29,11 @@ std::vector<std::vector<int>> read_pbm(const std::string& filename) {
     size_t width, height; 
     file >> width >> height;
 
-    std::vector<std::vector<int>> pixels(height, std::vector<int>(width));
+    PBM pbm(width, height); 
     for (size_t y = 0; y < height; ++y) 
         for (size_t x = 0; x < width; ++x) 
-            file >> pixels[y][x];
+            file >> pbm.bits[y * width + x];
         
-
     file.close();
-    return pixels;
+    return pbm;
 }
-
