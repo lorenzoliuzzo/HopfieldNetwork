@@ -16,11 +16,13 @@ public:
         
         if (learning_rule == "hebb") 
             this->weights = this->hebb_weights(patterns);
+        else if (learning_rule == "storkey")
+            this->weights = this->storkey_weights(patterns); 
         else if (learning_rule == "pinv") 
             this->weights = this->pinv_weights(patterns);
         else    
             throw std::runtime_error(
-                "There is no '" + learning_rule + "' learning rule in the current implementation. Consider using 'hebb' or 'pinv' learning rules."
+                "There is no '" + learning_rule + "' learning rule in the current implementation. Consider using 'hebb', 'storkey' or 'pinv' learning rules."
             );
     }
 
@@ -86,21 +88,53 @@ private:
 
     Eigen::MatrixXd hebb_weights(const std::vector<Pattern>& patterns) const {
         size_t n_neurons = patterns.front().size(); 
+        double inv_n_neurons = 1. / n_neurons; 
 
-        Eigen::MatrixXd W(n_neurons, n_neurons);        
+        Eigen::MatrixXd W = Eigen::MatrixXd::Zero(n_neurons, n_neurons);
         for (size_t i = 0; i < n_neurons; ++i) {
-            W(i, i) = 0.; 
             for (size_t j = i + 1; j < n_neurons; ++j) {  
-                double w_ij = 0.0;
+                double w_ij = 0.;
                 for (const Pattern& p : patterns) 
                     w_ij += static_cast<int>(p.bits[i]) * static_cast<int>(p.bits[j]);
-                w_ij /= n_neurons;
+                w_ij *= inv_n_neurons;
                 W(i, j) = W(j, i) = w_ij;                
             }
         }
         return W;
     }
 
+
+    Eigen::MatrixXd storkey_weights(const std::vector<Pattern>& patterns) const {
+        size_t n_neurons = patterns.front().size();
+        double inv_n_neurons = 1. / n_neurons; 
+
+        Eigen::MatrixXd W = Eigen::MatrixXd::Zero(n_neurons, n_neurons);
+        for (const Pattern& p : patterns) {
+
+            Eigen::VectorXd ξ(n_neurons);
+            for (size_t i = 0; i < n_neurons; ++i) ξ(i) = static_cast<int>(p.bits[i]);
+            
+            for (size_t i = 0; i < n_neurons; ++i) {
+                for (size_t j = 0; j < n_neurons; ++j) {
+                    if (i == j) continue;  
+
+                    double h_i = 0., h_j = 0.;
+                    for (size_t k = 0; k < n_neurons; ++k) {
+                        if (k != i && k != j) {
+                            h_i += W(i, k) * ξ(k);
+                            h_j += W(j, k) * ξ(k);
+                        }
+                    }
+                    
+                    W(i, j) += inv_n_neurons * (ξ(i) * ξ(j) - ξ(i) * h_j - h_i * ξ(j));
+                }
+            }
+        }
+        
+        return W;
+    }
+
+    
     Eigen::MatrixXd pinv_weights(const std::vector<Pattern>& patterns) const {
         size_t n_patterns = patterns.size();
         size_t n_neurons = patterns.front().size();
